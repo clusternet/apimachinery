@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
@@ -232,19 +231,19 @@ func (c *codec) doEncode(obj runtime.Object, w io.Writer, memAlloc runtime.Memor
 		// An unstructured list can contain objects of multiple group version kinds. don't short-circuit just
 		// because the top-level type matches our desired destination type. actually send the object to the converter
 		// to give it a chance to convert the list items if needed.
-		if _, ok := obj.(*unstructured.UnstructuredList); !ok {
-			// avoid conversion roundtrip if GVK is the right one already or is empty (yes, this is a hack, but the old behaviour we rely on in kubectl)
-			objGVK := obj.GetObjectKind().GroupVersionKind()
-			if len(objGVK.Version) == 0 {
-				return encodeFn(obj, w)
-			}
-			targetGVK, ok := c.encodeVersion.KindForGroupVersionKinds([]schema.GroupVersionKind{objGVK})
-			if !ok {
-				return runtime.NewNotRegisteredGVKErrForTarget(c.originalSchemeName, objGVK, c.encodeVersion)
-			}
-			if targetGVK == objGVK {
-				return encodeFn(obj, w)
-			}
+		//
+		// We do allow Unstructured and UnstructuredList in Clusternet.
+		// avoid conversion roundtrip if GVK is the right one already or is empty (yes, this is a hack, but the old behaviour we rely on in kubectl)
+		objGVK := obj.GetObjectKind().GroupVersionKind()
+		if len(objGVK.Version) == 0 {
+			return c.encoder.Encode(obj, w)
+		}
+		targetGVK, ok := c.encodeVersion.KindForGroupVersionKinds([]schema.GroupVersionKind{objGVK})
+		if !ok {
+			return runtime.NewNotRegisteredGVKErrForTarget(c.originalSchemeName, objGVK, c.encodeVersion)
+		}
+		if targetGVK == objGVK {
+			return c.encoder.Encode(obj, w)
 		}
 	}
 
