@@ -97,6 +97,16 @@ func newSerializersForScheme(scheme *runtime.Scheme, mf json.MetaFactory, option
 		},
 	}
 
+	// remove protobuf serializer for Clusternet
+	var serializersWithoutProtobuf []serializerType
+	for _, s := range serializers {
+		if s.ContentType == runtime.ContentTypeProtobuf {
+			continue
+		}
+		serializersWithoutProtobuf = append(serializersWithoutProtobuf, s)
+	}
+	serializers = serializersWithoutProtobuf
+
 	for _, fn := range serializerExtensions {
 		if serializer, ok := fn(scheme); ok {
 			serializers = append(serializers, serializer)
